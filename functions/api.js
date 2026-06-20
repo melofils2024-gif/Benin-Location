@@ -10,7 +10,7 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'beninlocation_secret_cle_2026_!@#$%';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // ==========================================
 // --- CONFIGURATION DE LA BASE DE DONNÉES ---
