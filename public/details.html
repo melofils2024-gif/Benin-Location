@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Détails de la chambre — BeninLocation</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+
+<header class="main-header">
+    <a href="index.html" class="logo">
+        <span class="logo-icon">🏠</span>
+        <span>Benin<span>Location</span></span>
+    </a>
+    <nav class="main-nav">
+        <a href="index.html">← Retour</a>
+    </nav>
+    <div id="nav-user-area"></div>
+</header>
+
+<main class="details-layout">
+    <div id="contenu-details">
+        <div class="loader"><span></span><span></span><span></span></div>
+    </div>
+</main>
+
+<script src="auth.js"></script>
+<script>
+const COORDONNEES = {
+    calavi:   [6.4167, 2.3333], cotonou:  [6.3703, 2.3912],
+    zogbo:    [6.3653, 2.3741], kpota:    [6.3800, 2.3600],
+    akpakpa:  [6.3575, 2.4268], 'haie vive':[6.3703,2.4012],
+    uac:      [6.4080, 2.3413]
+};
+
+function getCoords(localite) {
+    if (!localite) return [6.3703, 2.3912];
+    const key = localite.toLowerCase().trim();
+    for (const [k, v] of Object.entries(COORDONNEES)) {
+        if (key.includes(k)) return v;
+    }
+    return [6.3703, 2.3912];
+}
+
+const params = new URLSearchParams(window.location.search);
+const idChambre = params.get('id');
+
+window.addEventListener('DOMContentLoaded', () => {
+    Auth.updateNav();
+    chargerDetails();
+});
+
+async function chargerDetails() {
+    if (!idChambre) {
+        document.getElementById('contenu-details').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Chambre introuvable</h3><p>L\'identifiant de la chambre est manquant.</p></div>';
+        return;
+    }
+
+    try {
+        const r = await fetch(`/api/chambre/${idChambre}`);
+        if (!r.ok) throw new Error('Introuvable');
+        const c = await r.json();
+
+        // Gestion de la galerie d'images
+        let imagesHtml = '';
+        const mainImgSrc = c.image_url && c.image_url !== 'uploads/default.jpg' ? c.image_url : 'https://images.pexels.com/photos/6580222/pexels-photo-6580222.jpeg?auto=compress&cs=tinysrgb&w=800';
+        let allImages = [mainImgSrc];
+        
+        if (c.images_galerie) {
+            try {
+                const arr = JSON.parse(c.images_galerie);
+                if (Array.isArray(arr)) allImages = allImages.concat(arr);
+            } catch(e) {}
+        }
+
+        if (allImages.length > 1) {
+            const thumbs = allImages.map((src, idx) => `<img src="${src}" class="gallery-thumb ${idx===0?'active':''}" onclick="changeMainImage('${src}', this)" onerror="this.src='https://images.pexels.com/photos/6580222/pexels-photo-6580222.jpeg?auto=compress&cs=tinysrgb&w=150'">`).join('');
+            imagesHtml = `
+                <div class="gallery-main"><img id="main-image" src="${mainImgSrc}" onerror="this.src='https://images.pexels.com/photos/6580222/pexels-photo-6580222.jpeg?auto=compress&cs=tinysrgb&w=800'"></div>
+                <div class="gallery-thumbs">${thumbs}</div>
+            `;
+        } else {
+            imagesHtml = `<div class="gallery-main"><img src="${mainImgSrc}" onerror="this.src='https://images.pexels.com/photos/6580222/pexels-photo-6580222.jpeg?auto=compress&cs=tinysrgb&w=800'"></div>`;
+        }
+
+        document.getElementById('contenu-details').innerHTML = `
+            <div class="details-grid animate-up">
+                <div>
+                    ${imagesHtml}
+                </div>
+                <div class="details-info">
+                    <div class="details-badges">
+                        <span class="detail-badge localite">📍 ${c.localite || 'Zone non définie'}</span>
+                        <span class="detail-badge type">${c.type_chambre === 'climatise' ? '❄️ Climatisée' : '💨 Ventilée'}</span>
+                    </div>
+                    <h1 class="details-title">${c.titre}</h1>
+                    <div class="details-prix">${Number(c.prix).toLocaleString('fr-FR')} FCFA <span>/ mois</span></div>
+                    
+                    <p style="color:var(--text-muted);line-height:1.6;margin-top:10px">${c.description || 'Aucune description disponible.'}</p>
+                    
+                    <div class="proprio-card">
+                        <h3>Contact Propriétaire</h3>
+                        <div class="proprio-name">👤 ${c.proprio_nom || ''} ${c.proprio_prenom || ''}</div>
+                        <div class="proprio-tel">📞 ${c.proprio_tel || 'Non renseigné'}</div>
+                        <div class="proprio-actions">
+                            <button class="btn-primary" onclick="contacterProprio(${c.id})">✉️ Envoyer un message</button>
+                            ${c.proprio_whatsapp ? `<a href="https://wa.me/229${c.proprio_whatsapp.replace(/\D/g,'')}?text=Bonjour, je suis intéressé par votre annonce : ${c.titre}" target="_blank" class="btn-whatsapp">WhatsApp</a>` : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARTE -->
+            <div class="map-card animate-up" style="margin-top:40px">
+                <div class="map-header">
+                    <span class="map-icon">📍</span>
+                    <h2>Localisation : ${c.localite}</h2>
+                </div>
+                <div id="map" style="height:350px"></div>
+            </div>
+        `;
+
+        // Init Map
+        setTimeout(() => {
+            const coords = getCoords(c.localite);
+            const map = L.map('map').setView(coords, 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+            const icon = L.divIcon({
+                html: '<div style="background:#27ae60;color:white;border-radius:50% 50% 50% 0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:0 2px 8px rgba(0,0,0,0.3);border:2px solid white;transform:rotate(-45deg)"><span style="transform:rotate(45deg)">🏠</span></div>',
+                className: '', iconSize: [32, 32], iconAnchor: [16, 32]
+            });
+            L.marker(coords, { icon }).addTo(map).bindPopup('<b>Zone approximative</b><br>' + c.localite).openPopup();
+        }, 100);
+
+    } catch(err) {
+        document.getElementById('contenu-details').innerHTML = '<div class="empty-state"><div class="empty-icon">❌</div><h3>Erreur</h3><p>Impossible de charger les détails.</p></div>';
+    }
+}
+
+function changeMainImage(src, thumbElement) {
+    document.getElementById('main-image').src = src;
+    document.querySelectorAll('.gallery-thumb').forEach(el => el.classList.remove('active'));
+    thumbElement.classList.add('active');
+}
+
+function contacterProprio(id) {
+    if (!Auth.isLoggedIn()) {
+        const redirect = encodeURIComponent(`contact.html?chambre_id=${id}`);
+        window.location.href = `connexion.html?redirect=${redirect}&role=client`;
+    } else {
+        const s = Auth.getSession();
+        if (s.role !== 'client') {
+            alert('Vous êtes connecté en tant que propriétaire. Vous ne pouvez pas envoyer de message en tant que client. Veuillez vous déconnecter et vous connecter avec un compte client.');
+            return;
+        }
+        window.location.href = `contact.html?chambre_id=${id}`;
+    }
+}
+</script>
+</body>
+</html>

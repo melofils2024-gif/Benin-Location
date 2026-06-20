@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mot de passe oublié — BeninLocation</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-page">
+<div class="auth-card animate-up">
+    <div class="auth-logo">
+        <div class="auth-logo-icon">🏠</div>
+        <div class="auth-logo-text">Benin<span>Location</span></div>
+    </div>
+    <h1>Mot de passe oublié ?</h1>
+    <p class="auth-subtitle">Saisissez votre numéro pour réinitialiser votre mot de passe</p>
+
+    <form id="oubliForm" onsubmit="recuperer(event)">
+        <div class="form-group">
+            <label>📱 Numéro de téléphone <span class="required">*</span></label>
+            <input type="tel" id="telephone" placeholder="Ex: 97 00 00 00" required>
+        </div>
+
+        <div id="erreur" style="display:none;background:#fff5f5;border:1px solid #fecaca;color:#dc2626;padding:12px 16px;border-radius:10px;font-size:.88rem;margin-bottom:16px"></div>
+        <div id="succes" style="display:none;background:#f0fff4;border:1px solid #9ae6b4;color:#276749;padding:12px 16px;border-radius:10px;font-size:.88rem;margin-bottom:16px"></div>
+
+        <button type="submit" class="btn-primary" id="btnRecup" style="width:100%;padding:15px;font-size:1rem">
+            Réinitialiser
+        </button>
+    </form>
+
+    <div class="auth-links" style="margin-top:20px">
+        <a href="connexion.html">← Retour à la connexion</a>
+    </div>
+</div>
+
+<script>
+async function recuperer(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnRecup');
+    const err = document.getElementById('erreur');
+    const succ = document.getElementById('succes');
+    err.style.display = 'none';
+    succ.style.display = 'none';
+
+    btn.textContent = 'Patientez...';
+    btn.disabled = true;
+
+    try {
+        const r = await fetch('/api/recuperation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telephone: document.getElementById('telephone').value })
+        });
+        const data = await r.json();
+        if (data.success) {
+            document.getElementById('oubliForm').style.display = 'none';
+            succ.textContent = data.message;
+            succ.style.display = 'block';
+        } else {
+            err.textContent = data.message;
+            err.style.display = 'block';
+            btn.textContent = 'Réinitialiser';
+            btn.disabled = false;
+        }
+    } catch(ex) {
+        err.textContent = 'Erreur de connexion au serveur.';
+        err.style.display = 'block';
+        btn.textContent = 'Réinitialiser';
+        btn.disabled = false;
+    }
+}
+</script>
+</body>
+</html>

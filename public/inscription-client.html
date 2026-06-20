@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inscription Client — BeninLocation</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-page">
+<div class="auth-card animate-up">
+    <div class="auth-logo">
+        <div class="auth-logo-icon">🏠</div>
+        <div class="auth-logo-text">Benin<span>Location</span></div>
+    </div>
+    <h1>Créer un compte</h1>
+    <p class="auth-subtitle">Rejoignez BeninLocation et trouvez votre chambre idéale</p>
+
+    <form id="inscriptionForm" onsubmit="sInscrire(event)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div class="form-group">
+                <label>Nom <span class="required">*</span></label>
+                <input type="text" id="nom" placeholder="Ex: Kokou" required>
+            </div>
+            <div class="form-group">
+                <label>Prénom <span class="required">*</span></label>
+                <input type="text" id="prenom" placeholder="Ex: Fidèle" required>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>📱 Numéro de téléphone <span class="required">*</span></label>
+            <input type="tel" id="telephone" placeholder="Ex: 97 00 00 00" required>
+        </div>
+
+        <div class="form-group">
+            <label>🔒 Mot de passe <span class="required">*</span></label>
+            <div style="position:relative">
+                <input type="password" id="mot_de_passe" placeholder="Min. 6 caractères" required minlength="6" style="padding-right:48px">
+                <button type="button" onclick="toggleMdp('mot_de_passe','t1')" id="t1" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem">👁️</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>🔒 Confirmer le mot de passe <span class="required">*</span></label>
+            <div style="position:relative">
+                <input type="password" id="confirmer_mdp" placeholder="Répétez votre mot de passe" required style="padding-right:48px">
+                <button type="button" onclick="toggleMdp('confirmer_mdp','t2')" id="t2" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem">👁️</button>
+            </div>
+        </div>
+
+        <div id="erreur" style="display:none;background:#fff5f5;border:1px solid #fecaca;color:#dc2626;padding:12px 16px;border-radius:10px;font-size:.88rem;margin-bottom:16px"></div>
+
+        <button type="submit" class="btn-primary" id="btnInscrire" style="width:100%;padding:15px;font-size:1rem">
+            Créer mon compte →
+        </button>
+    </form>
+
+    <div class="auth-divider"><span>Vous êtes propriétaire ?</span></div>
+    <a href="inscription-proprio.html" class="btn-outline" style="width:100%;justify-content:center;padding:12px">
+        Créer un compte propriétaire
+    </a>
+
+    <div class="auth-links" style="margin-top:16px">
+        Déjà inscrit ? <a href="connexion.html">Se connecter</a>
+        &nbsp;|&nbsp;
+        <a href="index.html">← Accueil</a>
+    </div>
+</div>
+
+<script src="auth.js"></script>
+<script>
+if (Auth.isLoggedIn()) window.location.href = 'index.html';
+
+function toggleMdp(id, btnId) {
+    const inp = document.getElementById(id);
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+async function sInscrire(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnInscrire');
+    const err = document.getElementById('erreur');
+    err.style.display = 'none';
+
+    const mdp = document.getElementById('mot_de_passe').value;
+    const conf = document.getElementById('confirmer_mdp').value;
+    if (mdp !== conf) {
+        err.textContent = 'Les mots de passe ne correspondent pas.';
+        err.style.display = 'block';
+        return;
+    }
+
+    btn.textContent = 'Inscription en cours...';
+    btn.disabled = true;
+
+    try {
+        const r = await fetch('/api/inscription-client', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                nom: document.getElementById('nom').value,
+                prenom: document.getElementById('prenom').value,
+                telephone: document.getElementById('telephone').value,
+                mot_de_passe: mdp
+            })
+        });
+        const data = await r.json();
+        if (data.success) {
+            Auth.setSession(data);
+            const params = new URLSearchParams(window.location.search);
+            const redirect = params.get('redirect');
+            window.location.href = redirect ? decodeURIComponent(redirect) : 'espace-client.html';
+        } else {
+            err.textContent = data.message || 'Erreur lors de l\'inscription.';
+            err.style.display = 'block';
+            btn.textContent = 'Créer mon compte →';
+            btn.disabled = false;
+        }
+    } catch(ex) {
+        err.textContent = 'Erreur de connexion au serveur.';
+        err.style.display = 'block';
+        btn.textContent = 'Créer mon compte →';
+        btn.disabled = false;
+    }
+}
+</script>
+</body>
+</html>

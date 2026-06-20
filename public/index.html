@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="BeninLocation - Trouvez votre chambre idéale à Cotonou et Calavi. Louer facilement parmi des centaines d'annonces.">
+    <title>BeninLocation — Logements à Cotonou & Calavi</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="main-header">
+    <a href="index.html" class="logo">
+        <span class="logo-icon">🏠</span>
+        <span>Benin<span>Location</span></span>
+    </a>
+    <nav class="main-nav" id="main-nav">
+        <a href="index.html" class="active">Accueil</a>
+        <a href="#chambres">Chambres</a>
+        <a href="#carte">Carte</a>
+    </nav>
+    <div id="nav-user-area"></div>
+    <div class="menu-toggle" id="menuToggle" onclick="toggleMenu()">
+        <span></span><span></span><span></span>
+    </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+    <div class="hero-content animate-up">
+        <div class="hero-badge">🇧🇯 Plateforme N°1 au Bénin</div>
+        <h1>Trouvez votre<br><span class="highlight">chez-vous idéal</span></h1>
+        <p>La plateforme de référence pour louer une chambre ou un studio à Cotonou et Calavi — simple, rapide et fiable.</p>
+        <div class="hero-actions">
+            <a href="#search" class="btn-primary">🔍 Rechercher une chambre</a>
+            <button class="btn-secondary" onclick="publierAnnonce()">➕ Publier une annonce</button>
+        </div>
+    </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-section" id="stats-section">
+    <div class="stat-item">
+        <div class="stat-number" id="stat-chambres">...</div>
+        <div class="stat-label">Chambres disponibles</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">7</div>
+        <div class="stat-label">Zones couvertes</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">100%</div>
+        <div class="stat-label">Annonces vérifiées</div>
+    </div>
+</div>
+
+<!-- SEARCH -->
+<section class="search-section" id="search">
+    <div class="search-card">
+        <h2>🔎 Filtrer les chambres</h2>
+        <form class="search-form" id="searchForm" onsubmit="rechercherChambres(event)">
+            <div class="form-field">
+                <label>Localité</label>
+                <input type="text" id="s-localite" list="zones-list" placeholder="Ex: Calavi, Zogbo..." style="padding:13px 16px;border:1.5px solid #e2e8f0;border-radius:14px;font-family:var(--font);font-size:.95rem;outline:none;width:100%;transition:all .3s" onfocus="this.style.borderColor='#27ae60'" onblur="this.style.borderColor='#e2e8f0'">
+                <datalist id="zones-list">
+                    <option value="Calavi"><option value="Cotonou"><option value="Zogbo"><option value="Kpota"><option value="Akpakpa"><option value="Haie Vive"><option value="UAC">
+                </datalist>
+            </div>
+            <div class="form-field">
+                <label>Type</label>
+                <select id="s-type" style="padding:13px 16px;border:1.5px solid #e2e8f0;border-radius:14px;font-family:var(--font);font-size:.95rem;outline:none;width:100%;transition:all .3s;background:white" onfocus="this.style.borderColor='#27ae60'" onblur="this.style.borderColor='#e2e8f0'">
+                    <option value="tout">Tous les types</option>
+                    <option value="ventile">Ventilé</option>
+                    <option value="climatise">Climatisé</option>
+                </select>
+            </div>
+            <div class="form-field">
+                <label>Budget max (FCFA)</label>
+                <input type="number" id="s-prix" placeholder="Ex: 50000" style="padding:13px 16px;border:1.5px solid #e2e8f0;border-radius:14px;font-family:var(--font);font-size:.95rem;outline:none;width:100%;transition:all .3s" onfocus="this.style.borderColor='#27ae60'" onblur="this.style.borderColor='#e2e8f0'">
+            </div>
+            <button type="submit" class="btn-primary" style="white-space:nowrap;border-radius:14px">Rechercher</button>
+        </form>
+    </div>
+</section>
+
+<!-- CHAMBRES -->
+<section class="section-container" id="chambres">
+    <div class="section-header">
+        <h2 class="section-title">Chambres <span>disponibles</span></h2>
+        <button onclick="chargerChambres()" class="btn-outline" style="font-size:.85rem;padding:8px 18px">🔄 Actualiser</button>
+    </div>
+    <div id="grid-chambres" class="grid-chambres">
+        <div class="loader"><span></span><span></span><span></span></div>
+    </div>
+</section>
+
+<!-- CARTE -->
+<section class="map-section" id="carte">
+    <div class="map-card">
+        <div class="map-header">
+            <span class="map-icon">🗺️</span>
+            <div>
+                <h2>Localiser les chambres</h2>
+                <p style="color:var(--text-muted);font-size:.85rem;margin-top:2px">Cliquez sur un marqueur pour voir les détails</p>
+            </div>
+        </div>
+        <div id="map"></div>
+    </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="main-footer">
+    <div class="footer-logo">🏠 Benin<span>Location</span></div>
+    <p>La plateforme de confiance pour la location à Cotonou & Calavi</p>
+    <div class="footer-links">
+        <a href="index.html">Accueil</a>
+        <a href="connexion.html">Connexion</a>
+        <a href="inscription-client.html">S'inscrire</a>
+        <a href="inscription-proprio.html">Être propriétaire</a>
+    </div>
+    <div class="footer-copy">© 2026 BeninLocation. Tous droits réservés.</div>
+</footer>
+
+<!-- TOAST -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="auth.js"></script>
+<script>
+const COORDONNEES = {
+    calavi:   [6.4167, 2.3333], cotonou:  [6.3703, 2.3912],
+    zogbo:    [6.3653, 2.3741], kpota:    [6.3800, 2.3600],
+    akpakpa:  [6.3575, 2.4268], 'haie vive':[6.3703,2.4012],
+    uac:      [6.4080, 2.3413]
+};
+
+let map, toutesChambres = [];
+
+function showToast(msg, type='success') {
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.innerHTML = `<span>${type==='success'?'✅':type==='error'?'❌':'⚠️'}</span> ${msg}`;
+    document.getElementById('toastContainer').appendChild(t);
+    setTimeout(() => t.remove(), 3200);
+}
+
+function toggleMenu() {
+    document.getElementById('main-nav').classList.toggle('open');
+}
+
+function publierAnnonce() {
+    const s = Auth.getSession();
+    if (!s) {
+        window.location.href = 'connexion.html?redirect=espace-proprietaire.html&role=proprio';
+    } else if (s.role === 'proprio') {
+        window.location.href = 'espace-proprietaire.html';
+    } else {
+        showToast('Cette fonctionnalité est réservée aux propriétaires. Inscrivez-vous comme propriétaire.', 'warning');
+        setTimeout(() => window.location.href = 'inscription-proprio.html', 2000);
+    }
+}
+
+async function chargerChambres() {
+    const grid = document.getElementById('grid-chambres');
+    grid.innerHTML = '<div class="loader"><span></span><span></span><span></span></div>';
+    try {
+        const r = await fetch('/api/chambres');
+        toutesChambres = await r.json();
+        document.getElementById('stat-chambres').textContent = toutesChambres.length;
+        afficherChambres(toutesChambres);
+        mettreAJourCarte(toutesChambres);
+    } catch(e) {
+        grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🔌</div><h3>Serveur non disponible</h3><p>Assurez-vous que le serveur Node.js est démarré.</p></div>';
+    }
+}
+
+function afficherChambres(chambres) {
+    const grid = document.getElementById('grid-chambres');
+    if (!chambres.length) {
+        grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🏘️</div><h3>Aucune chambre trouvée</h3><p>Essayez d\'autres critères de recherche.</p></div>';
+        return;
+    }
+    grid.innerHTML = chambres.map(c => `
+        <div class="card animate-up" onclick="window.location.href='details.html?id=${c.id}'">
+            <div class="card-image">
+                <img src="${c.image_url && c.image_url !== 'uploads/default.jpg' ? c.image_url : 'https://images.pexels.com/photos/6580222/pexels-photo-6580222.jpeg?auto=compress&cs=tinysrgb&w=600'}" alt="${c.titre}" loading="lazy" onerror="this.src='https://images.pexels.com/photos/6580222/pexels-photo-6580222.jpeg?auto=compress&cs=tinysrgb&w=600'">
+                <span class="card-badge badge-${(c.localite||'').toLowerCase().replace(/\s+/g,'-')}">${c.localite || 'Zone'}</span>
+                <span class="card-type-tag">${c.type_chambre === 'climatise' ? '❄️ Climatisé' : '💨 Ventilé'}</span>
+            </div>
+            <div class="card-content">
+                <h3>${c.titre}</h3>
+                <div class="card-prix">${Number(c.prix).toLocaleString('fr-FR')} FCFA <span>/ mois</span></div>
+                <p class="card-desc">${c.description || 'Chambre disponible à la location.'}</p>
+                <a href="details.html?id=${c.id}" class="btn-voir" onclick="event.stopPropagation()">Voir les détails →</a>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function rechercherChambres(e) {
+    e.preventDefault();
+    const localite = document.getElementById('s-localite').value;
+    const type = document.getElementById('s-type').value;
+    const prix = document.getElementById('s-prix').value;
+    const url = `/api/recherche-chambres?localite=${encodeURIComponent(localite)}&type=${type}&prix_max=${prix}`;
+    try {
+        const r = await fetch(url);
+        const chambres = await r.json();
+        afficherChambres(chambres);
+        mettreAJourCarte(chambres);
+        document.getElementById('chambres').scrollIntoView({ behavior: 'smooth' });
+    } catch(e) { showToast('Erreur de connexion au serveur.', 'error'); }
+}
+
+function getCoords(localite) {
+    if (!localite) return [6.3703, 2.3912];
+    const key = localite.toLowerCase().trim();
+    for (const [k, v] of Object.entries(COORDONNEES)) {
+        if (key.includes(k)) return v;
+    }
+    return [6.3703, 2.3912];
+}
+
+function initCarte() {
+    map = L.map('map').setView([6.3703, 2.3912], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+}
+
+function mettreAJourCarte(chambres) {
+    if (!map) return;
+    map.eachLayer(l => { if (l instanceof L.Marker) map.removeLayer(l); });
+    const icon = L.divIcon({
+        html: '<div style="background:#27ae60;color:white;border-radius:50% 50% 50% 0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:0 2px 8px rgba(0,0,0,0.3);border:2px solid white;transform:rotate(-45deg)"><span style="transform:rotate(45deg)">🏠</span></div>',
+        className: '',
+        iconSize: [32, 32],
+        iconAnchor: [16, 32]
+    });
+    chambres.forEach(c => {
+        const coords = getCoords(c.localite);
+        L.marker(coords, { icon })
+            .addTo(map)
+            .bindPopup(`<b>${c.titre}</b><br>${Number(c.prix).toLocaleString('fr-FR')} FCFA/mois<br><a href="details.html?id=${c.id}" style="color:#27ae60;font-weight:700">Voir détails →</a>`);
+    });
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    Auth.updateNav();
+    initCarte();
+    chargerChambres();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="Location1.css"> 
+    <title>Récupération de mot de passe</title>
+</head>
+<body>
+    <h1>Mot de passe oublié</h1>
+    
+    <form action="http://localhost:3000/api/recuperation" method="POST">
+        <p>Entrez votre numéro de téléphone pour retrouver votre compte :</p>
+        <input type="text" name="telephone" placeholder="Votre téléphone" required>
+        <button type="submit">Recevoir mon mot de passe</button>
+    </form>
+    
+    <br>
+    <p><a href="connexion.html">Retour à la connexion</a></p>
+</body>
+</html>

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="Location1.css">
+    <title>Espace Propriétaire</title>
+
+    <style>
+        /* --- STYLES GÉNÉRAUX --- */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #f4f9f4; 
+            color: #1a1a1a; 
+            padding: 30px; 
+            max-width: 900px;
+            margin: auto;
+        }
+        
+        h1, h2, h3 { color: #000000; }
+        
+        h1 {
+            border-bottom: 4px solid #28a745; 
+            padding-bottom: 10px;
+            display: inline-block;
+        }
+        
+        hr { border: 1px solid #ddd; margin: 30px 0; }
+
+        /* --- STYLES : MESSAGES ET WHATSAPP --- */
+        select {
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #28a745; 
+            border-radius: 5px;
+            margin-bottom: 25px;
+            background-color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .message-card { 
+            background-color: #ffffff;
+            border-left: 6px solid #28a745; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+            padding: 20px;
+            margin: 15px 0; 
+            border-radius: 8px;
+            transition: transform 0.2s;
+        }
+
+        .message-card:hover { transform: translateX(5px); }
+        .message-card h4 { margin-top: 0; color: #000000; font-size: 1.2em; margin-bottom: 5px;}
+        .message-card p { margin-bottom: 0; line-height: 1.5; }
+
+        .whatsapp-btn {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 8px 15px;
+            background-color: #25D366; 
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 14px;
+            transition: 0.3s;
+        }
+        .whatsapp-btn:hover { background-color: #1ebd5a; }
+
+        /* --- STYLES : GESTION DES ANNONCES --- */
+        .form-box { background: #e8f4f8; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group textarea { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; }
+        
+        .btn-action { background-color: #2980b9; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 16px; }
+        .btn-action:hover { background-color: #2471a3; }
+        
+        .annonce-card { border: 1px solid #ddd; padding: 20px; margin-bottom: 15px; border-radius: 8px; background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .btn-edit { background: #f39c12; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 4px; font-weight: bold;}
+        .btn-delete { background: #e74c3c; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 4px; margin-left: 10px; font-weight: bold;}
+    </style>
+</head>
+<body>
+
+    <a href="connexion.html" style="float: right; color: #e74c3c; text-decoration: none; font-weight: bold; margin-top: 20px;">Se déconnecter</a>
+    
+    <!-- ========================================== -->
+    <!-- SECTION 1 : TABLEAU DE BORD (MESSAGES)     -->
+    <!-- ========================================== -->
+    <h1>Tableau de bord</h1>
+    <p>Consultez les messages reçus pour vos annonces.</p>
+    
+    <select id="selectProprio">
+        <option value="calavi">Calavi</option>
+        <option value="cotonou">Cotonou</option>
+    </select>
+
+    <div id="messages-container">Chargement...</div>
+
+    <hr>
+
+    <!-- ========================================== -->
+    <!-- SECTION 2 : GESTION DES ANNONCES           -->
+    <!-- ========================================== -->
+    <h2>Mes Annonces de Chambres</h2>
+
+    <!-- FORMULAIRE -->
+    <div class="form-box">
+        <h3 id="titreFormulaire">Publier une nouvelle annonce</h3>
+        <form id="formAjoutChambre">
+            <div class="form-group">
+                <label>Titre de l'annonce (ex: Chambre sanitaire) :</label>
+                <input type="text" id="titre_chambre" required>
+            </div>
+            <div class="form-group">
+                <label>Localité (ex: Calavi, Cotonou) :</label>
+                <input type="text" id="localite_chambre" required>
+            </div>
+            <div class="form-group">
+                <label>Prix mensuel (FCFA) :</label>
+                <input type="number" id="prix_chambre" required>
+            </div>
+            <div class="form-group">
+                <label>Description :</label>
+                <textarea id="desc_chambre" rows="3" required></textarea>
+            </div>
+            <button type="submit" class="btn-action" id="btnSubmit">Ajouter la chambre</button>
+        </form>
+    </div>
+
+    <!-- LISTE DES ANNONCES -->
+    <h3>Liste de mes annonces publiées</h3>
+    <div id="listeMesChambres">
+        <p>Chargement de vos annonces...</p>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- SCRIPTS JAVASCRIPT                         -->
+    <!-- ========================================== -->
+    <script>
+        // --- SCRIPT 1 : GESTION DES MESSAGES ---
+        const select = document.getElementById('selectProprio');
+        const container = document.getElementById('messages-container');
+
+        async function chargerMessages() {
+            container.innerHTML = "Chargement en cours...";
+            try {
+                const response = await fetch(`/api/messages/${select.value}`);
+                const data = await response.json();
+                
+                container.innerHTML = "";
+                if(data.length === 0) {
+                    container.innerHTML = "<p>Aucun message pour cette zone.</p>";
+                    return;
+                }
+
+                data.forEach(msg => {
+                    let numeroPropre = msg.tel.replace(/\s/g, ''); 
+                    container.innerHTML += `
+                        <div class="message-card">
+                            <h4>${msg.nom} - ${msg.tel}</h4>
+                            <p>${msg.message}</p>
+                            <a href="https://wa.me/229${numeroPropre}?text=Bonjour ${msg.nom}, je vous contacte concernant votre message pour une chambre." target="_blank" class="whatsapp-btn">Répondre sur WhatsApp</a>
+                        </div>
+                    `;
+                });
+            } catch (err) {
+                container.innerHTML = "Erreur : " + err.message;
+            }
+        }
+        select.addEventListener('change', chargerMessages);
+        chargerMessages(); // Chargement initial
+
+
+        // --- SCRIPT 2 : GESTION DES ANNONCES (CRUD) ---
+        const formAjout = document.getElementById('formAjoutChambre');
+        const boutonSubmit = document.getElementById('btnSubmit');
+        const titreFormulaire = document.getElementById('titreFormulaire');
+        let chambreIdEnModification = null;
+
+        // 2.A - Charger et afficher les annonces
+        function chargerMesChambres() {
+            fetch('/api/mes-chambres')
+            .then(response => response.json())
+            .then(chambres => {
+                const divListe = document.getElementById('listeMesChambres');
+                divListe.innerHTML = ''; 
+
+                if(chambres.length === 0) {
+                    divListe.innerHTML = '<p>Vous n\'avez publié aucune annonce pour le moment.</p>';
+                    return;
+                }
+
+                chambres.forEach(chambre => {
+                    divListe.innerHTML += `
+                        <div class="annonce-card">
+                            <h4 style="margin-top:0;">${chambre.titre} - <span style="color:#27ae60;">${chambre.prix} FCFA/mois</span></h4>
+                            <p><strong>Localité :</strong> ${chambre.localite}</p>
+                            <p><strong>Description :</strong> ${chambre.description}</p>
+                            <div style="margin-top: 15px;">
+                                <button class="btn-edit" onclick="preparerModification(${chambre.id}, '${chambre.titre}', '${chambre.localite}', ${chambre.prix}, '${chambre.description}')">Modifier</button>
+                                <button class="btn-delete" onclick="supprimerChambre(${chambre.id})">Supprimer</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            })
+            .catch(error => console.error('Erreur:', error));
+        }
+
+        // 2.B - Supprimer une annonce
+        function supprimerChambre(id) {
+            if (confirm("Voulez-vous vraiment supprimer cette annonce ?")) {
+                fetch(`/api/chambres/${id}`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(result => {
+                    alert(result.message);
+                    chargerMesChambres(); 
+                });
+            }
+        }
+
+        // 2.C - Préparer la modification
+        function preparerModification(id, titre, localite, prix, description) {
+            chambreIdEnModification = id; 
+            document.getElementById('titre_chambre').value = titre;
+            document.getElementById('localite_chambre').value = localite;
+            document.getElementById('prix_chambre').value = prix;
+            document.getElementById('desc_chambre').value = description;
+            
+            titreFormulaire.textContent = "Modifier l'annonce";
+            boutonSubmit.textContent = "Enregistrer les modifications";
+            boutonSubmit.style.backgroundColor = "#f39c12";
+            window.scrollTo({ top: document.querySelector('.form-box').offsetTop - 20, behavior: 'smooth' }); 
+        }
+
+        // 2.D - Envoyer le formulaire (Ajout ou Modification)
+        formAjout.addEventListener('submit', function(event) {
+            event.preventDefault(); 
+
+            const data = {
+                titre: document.getElementById('titre_chambre').value,
+                localite: document.getElementById('localite_chambre').value,
+                prix: document.getElementById('prix_chambre').value,
+                description: document.getElementById('desc_chambre').value
+            };
+
+            const url = chambreIdEnModification ? `/api/chambres/${chambreIdEnModification}` : '/api/ajouter-chambre';
+            const methode = chambreIdEnModification ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: methode,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if(result.success) {
+                    alert(result.message);
+                    formAjout.reset(); 
+                    chambreIdEnModification = null; 
+                    titreFormulaire.textContent = "Publier une nouvelle annonce";
+                    boutonSubmit.textContent = "Ajouter la chambre"; 
+                    boutonSubmit.style.backgroundColor = "#2980b9";
+                    chargerMesChambres(); 
+                } else {
+                    alert("Erreur : " + result.message);
+                }
+            })
+            .catch(error => console.error('Erreur:', error));
+        });
+
+        // Charger les annonces au démarrage
+        chargerMesChambres();
+    </script>
+</body>
+</html>

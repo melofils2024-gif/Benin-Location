@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Espace Client — BeninLocation</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="main-header">
+    <a href="index.html" class="logo">
+        <span class="logo-icon">🏠</span>
+        <span>Benin<span>Location</span></span>
+    </a>
+    <nav class="main-nav">
+        <a href="index.html">Accueil</a>
+        <a href="espace-client.html" class="active">Mon espace client</a>
+    </nav>
+    <div id="nav-user-area"></div>
+</header>
+
+<div class="client-layout">
+    <div class="dashboard-header" style="background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);">
+        <div>
+            <h1>👋 Bienvenue, <span id="client-nom">Client</span> !</h1>
+            <p>Trouvez la chambre idéale et contactez les propriétaires.</p>
+        </div>
+    </div>
+
+    <!-- RECHERCHE -->
+    <section class="search-section" style="margin-top:-20px;max-width:100%">
+        <div class="search-card">
+            <h2>🔎 Rechercher une chambre</h2>
+            <form class="search-form" id="searchForm" onsubmit="rechercherChambres(event)">
+                <div class="form-field">
+                    <label>Localité</label>
+                    <input type="text" id="s-localite" list="zones-list" placeholder="Ex: Calavi, Zogbo..." style="padding:13px 16px;border:1.5px solid #e2e8f0;border-radius:14px;font-family:var(--font);font-size:.95rem;outline:none;width:100%;transition:all .3s" onfocus="this.style.borderColor='#27ae60'" onblur="this.style.borderColor='#e2e8f0'">
+                    <datalist id="zones-list">
+                        <option value="Calavi"><option value="Cotonou"><option value="Zogbo"><option value="Kpota"><option value="Akpakpa"><option value="Haie Vive"><option value="UAC">
+                    </datalist>
+                </div>
+                <div class="form-field">
+                    <label>Type</label>
+                    <select id="s-type" style="padding:13px 16px;border:1.5px solid #e2e8f0;border-radius:14px;font-family:var(--font);font-size:.95rem;outline:none;width:100%;transition:all .3s;background:white" onfocus="this.style.borderColor='#27ae60'" onblur="this.style.borderColor='#e2e8f0'">
+                        <option value="tout">Tous les types</option>
+                        <option value="ventile">Ventilé</option>
+                        <option value="climatise">Climatisé</option>
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label>Budget max (FCFA)</label>
+                    <input type="number" id="s-prix" placeholder="Ex: 50000" style="padding:13px 16px;border:1.5px solid #e2e8f0;border-radius:14px;font-family:var(--font);font-size:.95rem;outline:none;width:100%;transition:all .3s" onfocus="this.style.borderColor='#27ae60'" onblur="this.style.borderColor='#e2e8f0'">
+                </div>
+                <button type="submit" class="btn-primary" style="white-space:nowrap;border-radius:14px">Rechercher</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- RESULTATS -->
+    <h3 style="margin-top:20px;color:var(--primary);font-size:1.3rem">Résultats de recherche</h3>
+    <div id="resultats-chambres" class="search-results-grid">
+        <div class="empty-state" style="grid-column:1/-1">
+            <div class="empty-icon">🔍</div>
+            <h3>Faites une recherche</h3>
+            <p>Remplissez le formulaire ci-dessus pour voir les chambres disponibles.</p>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="auth.js"></script>
+<script>
+let session;
+
+function showToast(msg, type='success') {
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.innerHTML = `<span>${type==='success'?'✅':type==='error'?'❌':'⚠️'}</span> ${msg}`;
+    document.getElementById('toastContainer').appendChild(t);
+    setTimeout(() => t.remove(), 3200);
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    if (!Auth.requireLogin('client')) return;
+    session = Auth.getSession();
+    Auth.updateNav();
+    document.getElementById('client-nom').textContent = session.nom ? session.nom.split(' ')[0] : 'Client';
+});
+
+async function rechercherChambres(e) {
+    e.preventDefault();
+    const localite = document.getElementById('s-localite').value;
+    const type = document.getElementById('s-type').value;
+    const prix = document.getElementById('s-prix').value;
+    const div = document.getElementById('resultats-chambres');
+    
+    div.innerHTML = '<div class="loader" style="grid-column:1/-1"><span></span><span></span><span></span></div>';
+
+    const url = `/api/recherche-chambres?localite=${encodeURIComponent(localite)}&type=${type}&prix_max=${prix}`;
+    try {
+        const r = await fetch(url);
+        const chambres = await r.json();
+        
+        if (!chambres.length) {
+            div.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🏘️</div><h3>Aucune chambre trouvée</h3><p>Essayez d\'autres critères de recherche.</p></div>';
+            return;
+        }
+
+        div.innerHTML = chambres.map(c => `
+            <div class="card animate-up" onclick="window.location.href='details.html?id=${c.id}'">
+                <div class="card-image">
+                    <img src="${c.image_url && c.image_url !== 'uploads/default.jpg' ? c.image_url : 'https://images.pexels.com/photos/6580222/pexels-photo-6580222.jpeg?auto=compress&cs=tinysrgb&w=600'}" alt="${c.titre}" loading="lazy" onerror="this.src='https://images.pexels.com/photos/6580222/pexels-photo-6580222.jpeg?auto=compress&cs=tinysrgb&w=600'">
+                    <span class="card-badge badge-${(c.localite||'').toLowerCase().replace(/\s+/g,'-')}">${c.localite || 'Zone'}</span>
+                    <span class="card-type-tag">${c.type_chambre === 'climatise' ? '❄️ Climatisé' : '💨 Ventilé'}</span>
+                </div>
+                <div class="card-content">
+                    <h3>${c.titre}</h3>
+                    <div class="card-prix">${Number(c.prix).toLocaleString('fr-FR')} FCFA <span>/ mois</span></div>
+                    <p class="card-desc">${c.description || 'Chambre disponible à la location.'}</p>
+                    <a href="contact.html?chambre_id=${c.id}" class="btn-voir" onclick="event.stopPropagation()">Contacter le propriétaire</a>
+                </div>
+            </div>
+        `).join('');
+    } catch(err) {
+        showToast('Erreur de connexion au serveur.', 'error');
+        div.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🔌</div><h3>Erreur</h3><p>Impossible de joindre le serveur.</p></div>';
+    }
+}
+</script>
+</body>
+</html>

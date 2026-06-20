@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de bord Propriétaire — BeninLocation</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="main-header">
+    <a href="index.html" class="logo">
+        <span class="logo-icon">🏠</span>
+        <span>Benin<span>Location</span></span>
+    </a>
+    <nav class="main-nav">
+        <a href="index.html">Accueil</a>
+        <a href="espace-proprietaire.html" class="active">Mon espace</a>
+    </nav>
+    <div id="nav-user-area"></div>
+</header>
+
+<div class="dashboard-layout">
+
+    <!-- HEADER DASHBOARD -->
+    <div class="dashboard-header">
+        <div>
+            <h1>👋 Bonjour, <span id="proprio-nom">Propriétaire</span> !</h1>
+            <p>Gérez vos annonces et consultez les messages de vos locataires.</p>
+        </div>
+        <div class="dashboard-zone-badge" id="zone-badge">📍 Zone</div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-card-icon green">🏠</div>
+            <div>
+                <div class="stat-card-value" id="nb-chambres">0</div>
+                <div class="stat-card-label">Annonces publiées</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon blue">💬</div>
+            <div>
+                <div class="stat-card-value" id="nb-messages">0</div>
+                <div class="stat-card-label">Messages reçus</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon orange">🔔</div>
+            <div>
+                <div class="stat-card-value" id="nb-nonlus">0</div>
+                <div class="stat-card-label">Sans réponse</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="openTab('annonces', this)">🏠 Mes annonces</button>
+        <button class="tab-btn" onclick="openTab('publier', this)">➕ Publier</button>
+        <button class="tab-btn" onclick="openTab('messages', this)" id="tab-messages-btn">💬 Messages</button>
+    </div>
+
+    <!-- TAB : LISTE ANNONCES -->
+    <div class="tab-panel active" id="tab-annonces">
+
+        <!-- BARRE DE LIMITE -->
+        <div class="limit-bar-wrap" id="limit-wrap" style="display:none">
+            <div class="limit-bar-label">
+                <span>Chambres pour cette localité</span>
+                <span id="limit-text">0 / 30</span>
+            </div>
+            <div class="limit-bar-bg">
+                <div class="limit-bar-fill" id="limit-fill" style="width:0%"></div>
+            </div>
+        </div>
+
+        <div id="liste-annonces">
+            <div class="loader"><span></span><span></span><span></span></div>
+        </div>
+    </div>
+
+    <!-- TAB : PUBLIER/MODIFIER -->
+    <div class="tab-panel" id="tab-publier">
+        <div style="background:white;border-radius:var(--radius-xl);padding:32px;border:1px solid var(--border);box-shadow:var(--shadow-sm)">
+            <h2 id="titre-form" style="margin-bottom:24px;font-size:1.2rem">➕ Nouvelle annonce</h2>
+
+            <form id="formChambre" onsubmit="soumettreFormulaire(event)">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                    <div class="form-group">
+                        <label>Titre de l'annonce <span class="required">*</span></label>
+                        <input type="text" id="titre" placeholder="Ex: Chambre climatisée" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Type de chambre</label>
+                        <select id="type_chambre">
+                            <option value="ventile">💨 Ventilée</option>
+                            <option value="climatise">❄️ Climatisée</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                    <div class="form-group">
+                        <label>Localité <span class="required">*</span></label>
+                        <select id="localite" required onchange="verifierLimite()">
+                            <option value="">-- Choisir la zone --</option>
+                            <option value="calavi">Calavi</option>
+                            <option value="cotonou">Cotonou</option>
+                            <option value="zogbo">Zogbo</option>
+                            <option value="kpota">Kpota</option>
+                            <option value="akpakpa">Akpakpa</option>
+                            <option value="haie vive">Haie Vive</option>
+                            <option value="uac">UAC</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Prix mensuel (FCFA) <span class="required">*</span></label>
+                        <input type="number" id="prix" placeholder="Ex: 25000" required min="1000">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Description détaillée</label>
+                    <textarea id="description" rows="4" placeholder="Décrivez votre chambre : superficie, équipements, accès..."></textarea>
+                </div>
+
+                <!-- UPLOAD PHOTOS -->
+                <div class="form-group">
+                    <label>📸 Photos de la chambre (jusqu'à 10 photos)</label>
+                    <div class="upload-zone" onclick="document.getElementById('photos-input').click()" id="uploadZone">
+                        <div class="upload-icon">📷</div>
+                        <p><span>Cliquez pour ajouter des photos</span> ou glissez-déposez</p>
+                        <p style="font-size:.8rem;margin-top:4px;color:var(--text-light)">JPG, PNG — max 5MB par photo</p>
+                    </div>
+                    <input type="file" id="photos-input" multiple accept="image/*" style="display:none" onchange="previewPhotos(event)">
+                    <div class="upload-preview" id="preview-container"></div>
+                </div>
+
+                <div id="form-erreur" style="display:none;background:#fff5f5;border:1px solid #fecaca;color:#dc2626;padding:12px 16px;border-radius:10px;font-size:.88rem;margin-bottom:16px"></div>
+
+                <div style="display:flex;gap:12px;flex-wrap:wrap">
+                    <button type="submit" class="btn-primary" id="btnSoumettre">Publier l'annonce</button>
+                    <button type="button" class="btn-outline" onclick="annulerModification()" id="btnAnnuler" style="display:none">Annuler la modification</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TAB : MESSAGES -->
+    <div class="tab-panel" id="tab-messages">
+        <div id="liste-messages">
+            <div class="loader"><span></span><span></span><span></span></div>
+        </div>
+    </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="auth.js"></script>
+<script>
+let session, chambreIdModif = null;
+
+function showToast(msg, type='success') {
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.innerHTML = `<span>${type==='success'?'✅':type==='error'?'❌':'⚠️'}</span> ${msg}`;
+    document.getElementById('toastContainer').appendChild(t);
+    setTimeout(() => t.remove(), 3200);
+}
+
+function openTab(name, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    btn.classList.add('active');
+    if (name === 'messages') chargerMessages();
+    if (name === 'annonces') chargerAnnonces();
+}
+
+// ---- CHARGEMENT INITIAL ----
+window.addEventListener('DOMContentLoaded', () => {
+    if (!Auth.requireLogin('proprio')) return;
+    session = Auth.getSession();
+    Auth.updateNav();
+
+    document.getElementById('proprio-nom').textContent = session.nom ? session.nom.split(' ')[0] : 'Propriétaire';
+    document.getElementById('zone-badge').textContent = '📍 ' + (session.zone || 'Zone');
+
+    chargerStats();
+    chargerAnnonces();
+    // Pré-sélectionner la zone du proprio
+    const locSelect = document.getElementById('localite');
+    if (session.zone) {
+        for (let opt of locSelect.options) {
+            if (opt.value === session.zone.toLowerCase()) { opt.selected = true; break; }
+        }
+    }
+});
+
+// ---- STATS ----
+async function chargerStats() {
+    try {
+        const r = await fetch('/api/stats-proprio', { headers: Auth.getHeaders() });
+        const s = await r.json();
+        document.getElementById('nb-chambres').textContent = s.chambres;
+        document.getElementById('nb-messages').textContent = s.messages;
+        document.getElementById('nb-nonlus').textContent = s.nonLus;
+        if (s.nonLus > 0) {
+            document.getElementById('tab-messages-btn').innerHTML = `💬 Messages <span style="background:var(--warning);color:white;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;margin-left:6px">${s.nonLus}</span>`;
+        }
+    } catch(e) {}
+}
+
+// ---- ANNONCES ----
+async function chargerAnnonces() {
+    const div = document.getElementById('liste-annonces');
+    div.innerHTML = '<div class="loader"><span></span><span></span><span></span></div>';
+    try {
+        const r = await fetch('/api/mes-chambres', { headers: Auth.getHeaders() });
+        const chambres = await r.json();
+
+        if (!chambres.length) {
+            div.innerHTML = '<div class="empty-state"><div class="empty-icon">🏠</div><h3>Aucune annonce publiée</h3><p>Cliquez sur "Publier" pour ajouter votre première chambre.</p></div>';
+            return;
+        }
+
+        // Calcul limite par localité
+        const comptesParZone = {};
+        chambres.forEach(c => {
+            const z = (c.localite || '').toLowerCase();
+            comptesParZone[z] = (comptesParZone[z] || 0) + 1;
+        });
+
+        // Afficher barre de limite pour la zone du proprio
+        const zoneActuelle = session.zone ? session.zone.toLowerCase() : '';
+        const nbActuel = comptesParZone[zoneActuelle] || 0;
+        const pct = Math.min(100, (nbActuel / 30) * 100);
+        const limitWrap = document.getElementById('limit-wrap');
+        limitWrap.style.display = 'block';
+        document.getElementById('limit-text').textContent = `${nbActuel} / 30`;
+        const fill = document.getElementById('limit-fill');
+        fill.style.width = pct + '%';
+        fill.className = 'limit-bar-fill' + (pct >= 90 ? ' danger' : pct >= 70 ? ' warning' : '');
+
+        div.innerHTML = chambres.map(c => {
+            const imgSrc = c.image_url && c.image_url !== 'uploads/default.jpg'
+                ? c.image_url
+                : 'https://images.pexels.com/photos/6580222/pexels-photo-6580222.jpeg?auto=compress&cs=tinysrgb&w=300';
+            return `
+            <div class="annonce-card">
+                <img class="annonce-card-img" src="${imgSrc}" alt="${c.titre}" onerror="this.src='https://images.pexels.com/photos/6580222/pexels-photo-6580222.jpeg?auto=compress&cs=tinysrgb&w=300'">
+                <div class="annonce-card-body">
+                    <h4>${c.titre}</h4>
+                    <div class="prix">${Number(c.prix).toLocaleString('fr-FR')} FCFA/mois</div>
+                    <div class="localite">📍 ${c.localite} · ${c.type_chambre === 'climatise' ? '❄️ Climatisée' : '💨 Ventilée'}</div>
+                    <div class="annonce-card-actions">
+                        <button class="btn-primary" style="padding:8px 16px;font-size:.85rem;width:auto" onclick="modifierChambre(${c.id},'${escapeStr(c.titre)}','${c.localite}',${c.prix},'${escapeStr(c.description||'')}','${c.type_chambre}')">✏️ Modifier</button>
+                        <button class="btn-danger btn-primary" style="padding:8px 16px;font-size:.85rem;width:auto" onclick="supprimerChambre(${c.id})">🗑️ Supprimer</button>
+                        <a href="details.html?id=${c.id}" class="btn-outline" style="padding:8px 16px;font-size:.85rem" target="_blank">👁️ Voir</a>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) {
+        div.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Erreur de chargement</h3><p>Vérifiez que le serveur est démarré.</p></div>';
+    }
+}
+
+function escapeStr(s) { return (s || '').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+// ---- MESSAGES ----
+async function chargerMessages() {
+    const div = document.getElementById('liste-messages');
+    div.innerHTML = '<div class="loader"><span></span><span></span><span></span></div>';
+    const zone = session.zone || 'calavi';
+    try {
+        const r = await fetch(`/api/messages/${encodeURIComponent(zone)}`, { headers: Auth.getHeaders() });
+        const msgs = await r.json();
+        if (!msgs.length) {
+            div.innerHTML = '<div class="empty-state"><div class="empty-icon">💬</div><h3>Aucun message</h3><p>Vous n\'avez pas encore reçu de message.</p></div>';
+            return;
+        }
+        div.innerHTML = msgs.map(m => {
+            const numWA = (m.telephone || '').replace(/\D/g, '');
+            const hasReponse = m.reponse && m.reponse.trim();
+            return `
+            <div class="message-card ${hasReponse ? '' : 'non-lu'}" id="msg-${m.id}">
+                <div class="message-card-header">
+                    <h4>👤 ${m.nom} · 📞 ${m.telephone}</h4>
+                    <span class="date">🕐 ${new Date(m.date_envoi).toLocaleString('fr-FR')}</span>
+                </div>
+                ${m.chambre_titre ? `<p style="font-size:.82rem;color:var(--text-light);margin-bottom:6px">📌 Concernant : <strong>${m.chambre_titre}</strong></p>` : ''}
+                <p>${m.message}</p>
+                ${hasReponse ? `<div class="message-reponse">✅ <strong>Votre réponse :</strong> ${m.reponse}</div>` : ''}
+                <div class="message-actions">
+                    <a href="https://wa.me/229${numWA}?text=Bonjour ${encodeURIComponent(m.nom)}, je vous contacte concernant votre demande de chambre." target="_blank" class="btn-whatsapp">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                        Répondre sur WhatsApp
+                    </a>
+                    ${!hasReponse ? `<button class="btn-outline" style="padding:8px 16px;font-size:.85rem" onclick="toggleReponse(${m.id})">✍️ Répondre ici</button>` : ''}
+                </div>
+                <div class="reply-form" id="reply-${m.id}">
+                    <textarea rows="3" id="reponse-text-${m.id}" placeholder="Écrivez votre réponse..."></textarea>
+                    <div style="display:flex;gap:10px;margin-top:10px">
+                        <button class="btn-primary" style="padding:9px 18px;font-size:.85rem;width:auto" onclick="envoyerReponse(${m.id})">Envoyer la réponse</button>
+                        <button class="btn-outline" style="padding:9px 18px;font-size:.85rem" onclick="toggleReponse(${m.id})">Annuler</button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) {
+        div.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Erreur</h3></div>';
+    }
+}
+
+function toggleReponse(id) {
+    const f = document.getElementById('reply-' + id);
+    f.classList.toggle('visible');
+}
+
+async function envoyerReponse(id) {
+    const texte = document.getElementById('reponse-text-' + id).value.trim();
+    if (!texte) { showToast('Écrivez une réponse avant d\'envoyer.', 'warning'); return; }
+    try {
+        const r = await fetch(`/api/messages/${id}/reponse`, {
+            method: 'PUT',
+            headers: Auth.getHeaders(),
+            body: JSON.stringify({ reponse: texte })
+        });
+        const data = await r.json();
+        if (data.success) {
+            showToast('Réponse enregistrée !');
+            chargerMessages();
+            chargerStats();
+        }
+    } catch(e) { showToast('Erreur lors de l\'envoi.', 'error'); }
+}
+
+// ---- CRUD CHAMBRES ----
+function modifierChambre(id, titre, localite, prix, desc, type) {
+    chambreIdModif = id;
+    document.getElementById('titre').value = titre;
+    document.getElementById('prix').value = prix;
+    document.getElementById('description').value = desc;
+    // Localité
+    const locSel = document.getElementById('localite');
+    for (let o of locSel.options) { if (o.value === localite) { o.selected = true; break; } }
+    // Type
+    const typeSel = document.getElementById('type_chambre');
+    for (let o of typeSel.options) { if (o.value === type) { o.selected = true; break; } }
+
+    document.getElementById('titre-form').textContent = '✏️ Modifier l\'annonce';
+    document.getElementById('btnSoumettre').textContent = 'Enregistrer les modifications';
+    document.getElementById('btnAnnuler').style.display = 'inline-flex';
+    openTab('publier', document.querySelectorAll('.tab-btn')[1]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function annulerModification() {
+    chambreIdModif = null;
+    document.getElementById('formChambre').reset();
+    document.getElementById('titre-form').textContent = '➕ Nouvelle annonce';
+    document.getElementById('btnSoumettre').textContent = 'Publier l\'annonce';
+    document.getElementById('btnAnnuler').style.display = 'none';
+    document.getElementById('preview-container').innerHTML = '';
+}
+
+async function supprimerChambre(id) {
+    if (!confirm('Voulez-vous vraiment supprimer cette annonce ?')) return;
+    try {
+        const r = await fetch(`/api/chambres/${id}`, { method: 'DELETE', headers: Auth.getHeaders() });
+        const data = await r.json();
+        if (data.success) { showToast(data.message); chargerAnnonces(); chargerStats(); }
+        else showToast(data.message, 'error');
+    } catch(e) { showToast('Erreur de suppression.', 'error'); }
+}
+
+async function verifierLimite() {
+    // Appelé quand on change de localité
+}
+
+async function soumettreFormulaire(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSoumettre');
+    const err = document.getElementById('form-erreur');
+    err.style.display = 'none';
+    btn.textContent = 'Publication en cours...';
+    btn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('titre', document.getElementById('titre').value);
+    formData.append('localite', document.getElementById('localite').value);
+    formData.append('prix', document.getElementById('prix').value);
+    formData.append('description', document.getElementById('description').value);
+    formData.append('type_chambre', document.getElementById('type_chambre').value);
+
+    const photos = document.getElementById('photos-input').files;
+    for (let f of photos) formData.append('photos', f);
+
+    const url = chambreIdModif ? `/api/chambres/${chambreIdModif}` : '/api/ajouter-chambre';
+    const method = chambreIdModif ? 'PUT' : 'POST';
+
+    try {
+        const r = await fetch(url, { method, headers: Auth.getHeadersFormData(), body: formData });
+        const data = await r.json();
+        if (data.success) {
+            showToast(data.message);
+            annulerModification();
+            chargerAnnonces();
+            chargerStats();
+            openTab('annonces', document.querySelectorAll('.tab-btn')[0]);
+        } else {
+            err.textContent = data.message;
+            err.style.display = 'block';
+            btn.textContent = chambreIdModif ? 'Enregistrer les modifications' : 'Publier l\'annonce';
+            btn.disabled = false;
+        }
+    } catch(ex) {
+        err.textContent = 'Erreur de connexion au serveur.';
+        err.style.display = 'block';
+        btn.textContent = chambreIdModif ? 'Enregistrer les modifications' : 'Publier l\'annonce';
+        btn.disabled = false;
+    }
+}
+
+// ---- PRÉVISUALISATION PHOTOS ----
+function previewPhotos(event) {
+    const container = document.getElementById('preview-container');
+    container.innerHTML = '';
+    const files = event.target.files;
+    for (let file of files) {
+        if (!file.type.startsWith('image/')) continue;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = document.createElement('img');
+            img.src = e.target.result;
+            img.className = 'preview-img';
+            container.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+    }
+    if (files.length > 0) {
+        document.querySelector('.upload-zone p').innerHTML = `<span>${files.length} photo(s) sélectionnée(s)</span>`;
+    }
+}
+
+// Drag & Drop
+const uploadZone = document.getElementById('uploadZone');
+uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    const input = document.getElementById('photos-input');
+    input.files = e.dataTransfer.files;
+    previewPhotos({ target: input });
+});
+</script>
+</body>
+</html>
