@@ -147,7 +147,10 @@ function showToast(msg, type='success') {
 }
 
 function toggleMenu() {
-    document.getElementById('main-nav').classList.toggle('open');
+    const nav = document.getElementById('main-nav');
+    const toggle = document.getElementById('menuToggle');
+    nav.classList.toggle('open');
+    toggle.classList.toggle('open');
 }
 
 function publierAnnonce() {
@@ -251,6 +254,24 @@ window.addEventListener('DOMContentLoaded', () => {
     Auth.updateNav();
     initCarte();
     chargerChambres();
+    
+    // Close menu when clicking a nav link
+    document.querySelectorAll('.main-nav a').forEach(link => {
+        link.addEventListener('click', () => {
+            document.getElementById('main-nav').classList.remove('open');
+            document.getElementById('menuToggle').classList.remove('open');
+        });
+    });
+    
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+        const nav = document.getElementById('main-nav');
+        const toggle = document.getElementById('menuToggle');
+        if (!nav.contains(e.target) && !toggle.contains(e.target) && nav.classList.contains('open')) {
+            nav.classList.remove('open');
+            toggle.classList.remove('open');
+        }
+    });
 });
 </script>
 </body>

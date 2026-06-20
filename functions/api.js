@@ -1,28 +1,41 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const { Pool } = require('pg');
+const sqlite3 = require('sqlite3').verbose();
+const util = require('util');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-in-prod';
+
+let db; // Database instance (either pg pool or sqlite3 db)
+let usePostgres = false;
 
 // ==========================================
 // --- CONFIGURATION DE LA BASE DE DONNÉES ---
 // ==========================================
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false }
-});
-
-const initDb = async () => {
-    try {
-        await pool.query(`
+async function initDb() {
+    if (process.env.DATABASE_URL) {
+        // Use PostgreSQL
+        usePostgres = true;
+        const pool = new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false }
+        });
+        // Add query method to pool that returns rows directly
+        db = {
+            async query(sql, params = []) {
+                const result = await pool.query(sql, params);
+                return { rows: result.rows, rowCount: result.rowCount };
+            }
+        };
+        await db.query(`
             CREATE TABLE IF NOT EXISTS proprietaires (
                 id SERIAL PRIMARY KEY,
                 nom TEXT NOT NULL,
@@ -67,16 +80,100 @@ const initDb = async () => {
             );
         `);
         console.log('✅ Base de données PostgreSQL initialisée.');
-    } catch (err) {
-        console.error('❌ Erreur initialisation BD:', err);
+    } else {
+        // Use SQLite for local development
+        usePostgres = false;
+        const sqliteDb = new sqlite3.Database('./location.db');
+        sqliteDb.run = util.promisify(sqliteDb.run);
+        sqliteDb.all = util.promisify(sqliteDb.all);
+        sqliteDb.get = util.promisify(sqliteDb.get);
+        
+        db = {
+            async query(sql, params = []) {
+                // Convert PostgreSQL placeholders ($1, $2, ...) to SQLite (?)
+                let sqliteSql = sql;
+                let sqliteParams = [];
+                let paramIndex = 1;
+                while (sqliteSql.includes(`$${paramIndex}`)) {
+                    sqliteSql = sqliteSql.replace(`$${paramIndex}`, '?');
+                    sqliteParams.push(params[paramIndex - 1]);
+                    paramIndex++;
+                }
+                
+                // Handle different query types
+                if (sqliteSql.trim().toUpperCase().startsWith('SELECT')) {
+                    const rows = await sqliteDb.all(sqliteSql, sqliteParams);
+                    return { rows, rowCount: rows.length };
+                } else if (sqliteSql.trim().toUpperCase().startsWith('INSERT')) {
+                    const result = await sqliteDb.run(sqliteSql, sqliteParams);
+                    // For SQLite, we need to get the last inserted ID
+                    const lastResult = await sqliteDb.get('SELECT last_insert_rowid() as id');
+                    return { rows: [{ id: lastResult.id }], rowCount: 1 };
+                } else {
+                    const result = await sqliteDb.run(sqliteSql, sqliteParams);
+                    return { rows: [], rowCount: result.changes || 0 };
+                }
+            }
+        };
+        
+        // Initialize SQLite tables
+        await sqliteDb.run(`
+            CREATE TABLE IF NOT EXISTS proprietaires (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nom TEXT NOT NULL,
+                prenom TEXT NOT NULL,
+                sexe TEXT NOT NULL,
+                telephone TEXT NOT NULL UNIQUE,
+                whatsapp TEXT NOT NULL,
+                zone TEXT NOT NULL,
+                mot_de_passe TEXT NOT NULL,
+                date_inscription DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await sqliteDb.run(`
+            CREATE TABLE IF NOT EXISTS clients (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nom TEXT NOT NULL,
+                prenom TEXT NOT NULL,
+                telephone TEXT NOT NULL UNIQUE,
+                mot_de_passe TEXT NOT NULL,
+                date_inscription DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await sqliteDb.run(`
+            CREATE TABLE IF NOT EXISTS chambres (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                titre TEXT NOT NULL,
+                description TEXT,
+                prix REAL,
+                localite TEXT,
+                type_chambre TEXT DEFAULT 'ventile',
+                proprietaire_id INTEGER REFERENCES proprietaires(id) ON DELETE CASCADE,
+                image_url TEXT DEFAULT 'uploads/default.jpg',
+                images_galerie TEXT,
+                date_ajout DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await sqliteDb.run(`
+            CREATE TABLE IF NOT EXISTS contacts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nom TEXT NOT NULL,
+                telephone TEXT NOT NULL,
+                message TEXT NOT NULL,
+                proprioId TEXT NOT NULL,
+                chambre_id INTEGER,
+                client_id INTEGER,
+                reponse TEXT,
+                date_envoi DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('✅ Base de données SQLite initialisée.');
     }
-};
-
-if (process.env.DATABASE_URL) {
-    initDb();
-} else {
-    console.log('⚠️ ATTENTION: DATABASE_URL non définie. La base de données ne fonctionnera pas.');
 }
+
+(async () => {
+  await initDb();
+})();
 
 // ==========================================
 // --- CONFIGURATION CLOUDINARY & MULTER ---
@@ -127,13 +224,14 @@ app.post('/api/inscription-proprio', async (req, res) => {
     try {
         const hashedPassword = await bcrypt.hash(mot_de_passe, 10);
         const sql = `INSERT INTO proprietaires (nom, prenom, sexe, telephone, whatsapp, zone, mot_de_passe) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`;
-        const result = await pool.query(sql, [nom, prenom, sexe || 'M', telephone, whatsapp || telephone, zone, hashedPassword]);
+        const result = await db.query(sql, [nom, prenom, sexe || 'M', telephone, whatsapp || telephone, zone, hashedPassword]);
         const newId = result.rows[0].id;
         
         const token = jwt.sign({ id: newId, role: 'proprio', zone, nom: nom + ' ' + prenom }, JWT_SECRET, { expiresIn: '7d' });
         res.json({ success: true, message: 'Inscription réussie !', token, role: 'proprio', id: newId, zone, nom: nom + ' ' + prenom });
     } catch (err) {
-        if (err.code === '23505') { // Code d'erreur unique PostgreSQL
+        // Handle unique constraint error
+        if (err.message && (err.message.includes('UNIQUE') || err.code === '23505')) {
             return res.status(400).json({ success: false, message: 'Ce numéro de téléphone est déjà utilisé.' });
         }
         console.error(err);
@@ -150,13 +248,14 @@ app.post('/api/inscription-client', async (req, res) => {
     try {
         const hashedPassword = await bcrypt.hash(mot_de_passe, 10);
         const sql = `INSERT INTO clients (nom, prenom, telephone, mot_de_passe) VALUES ($1, $2, $3, $4) RETURNING id`;
-        const result = await pool.query(sql, [nom, prenom, telephone, hashedPassword]);
+        const result = await db.query(sql, [nom, prenom, telephone, hashedPassword]);
         const newId = result.rows[0].id;
         
         const token = jwt.sign({ id: newId, role: 'client', nom: nom + ' ' + prenom }, JWT_SECRET, { expiresIn: '7d' });
         res.json({ success: true, message: 'Inscription réussie !', token, role: 'client', id: newId, nom: nom + ' ' + prenom });
     } catch (err) {
-        if (err.code === '23505') {
+        // Handle unique constraint error
+        if (err.message && (err.message.includes('UNIQUE') || err.code === '23505')) {
             return res.status(400).json({ success: false, message: 'Ce numéro de téléphone est déjà utilisé.' });
         }
         res.status(500).json({ success: false, message: 'Erreur serveur.' });
@@ -174,7 +273,7 @@ app.post('/api/login', async (req, res) => {
 
     try {
         // Chercher dans proprietaires
-        let result = await pool.query(`SELECT * FROM proprietaires WHERE telephone = $1`, [telephone]);
+        let result = await db.query(`SELECT * FROM proprietaires WHERE telephone = $1`, [telephone]);
         let user = result.rows[0];
         
         if (user) {
@@ -188,7 +287,7 @@ app.post('/api/login', async (req, res) => {
         }
 
         // Sinon chercher dans clients
-        result = await pool.query(`SELECT * FROM clients WHERE telephone = $1`, [telephone]);
+        result = await db.query(`SELECT * FROM clients WHERE telephone = $1`, [telephone]);
         user = result.rows[0];
 
         if (user) {
@@ -213,10 +312,10 @@ app.post('/api/recuperation', async (req, res) => {
     const hashedPassword = await bcrypt.hash(nouveauMotDePasse, 10);
 
     try {
-        let result = await pool.query(`UPDATE proprietaires SET mot_de_passe = $1 WHERE telephone = $2`, [hashedPassword, telephone]);
+        let result = await db.query(`UPDATE proprietaires SET mot_de_passe = $1 WHERE telephone = $2`, [hashedPassword, telephone]);
         if (result.rowCount > 0) return res.json({ success: true, message: "Mot de passe réinitialisé à '123456'." });
 
-        result = await pool.query(`UPDATE clients SET mot_de_passe = $1 WHERE telephone = $2`, [hashedPassword, telephone]);
+        result = await db.query(`UPDATE clients SET mot_de_passe = $1 WHERE telephone = $2`, [hashedPassword, telephone]);
         if (result.rowCount > 0) return res.json({ success: true, message: "Mot de passe réinitialisé à '123456'." });
         
         res.status(404).json({ success: false, message: 'Aucun compte trouvé avec ce numéro.' });
@@ -231,7 +330,7 @@ app.post('/api/recuperation', async (req, res) => {
 app.get('/api/messages/:proprioId', verifierToken, async (req, res) => {
     if (req.user.role !== 'proprio') return res.status(403).json({ error: 'Accès refusé.' });
     try {
-        const result = await pool.query(`
+        const result = await db.query(`
             SELECT c.*, ch.titre as chambre_titre FROM contacts c 
             LEFT JOIN chambres ch ON c.chambre_id = ch.id
             WHERE c.proprioId = $1 ORDER BY c.date_envoi DESC
@@ -245,7 +344,7 @@ app.get('/api/messages/:proprioId', verifierToken, async (req, res) => {
 app.get('/api/mes-messages', verifierToken, async (req, res) => {
     if (req.user.role !== 'proprio') return res.status(403).json({ error: 'Accès refusé.' });
     try {
-        const result = await pool.query(`
+        const result = await db.query(`
             SELECT c.*, ch.titre as chambre_titre FROM contacts c
             LEFT JOIN chambres ch ON c.chambre_id = ch.id
             WHERE c.proprioId = $1 ORDER BY c.date_envoi DESC
@@ -260,7 +359,7 @@ app.post('/api/envoyer-message', verifierToken, async (req, res) => {
     if (req.user.role !== 'client') return res.status(403).json({ success: false, message: 'Seuls les clients peuvent envoyer.' });
     const { nom, telephone, message, proprioId, chambre_id } = req.body;
     try {
-        await pool.query(
+        await db.query(
             `INSERT INTO contacts (nom, telephone, message, proprioId, client_id, chambre_id) VALUES ($1, $2, $3, $4, $5, $6)`,
             [nom || req.user.nom, telephone || '', message, proprioId, req.user.id, chambre_id || null]
         );
@@ -273,7 +372,7 @@ app.post('/api/envoyer-message', verifierToken, async (req, res) => {
 app.put('/api/messages/:id/reponse', verifierToken, async (req, res) => {
     if (req.user.role !== 'proprio') return res.status(403).json({ error: 'Accès refusé.' });
     try {
-        await pool.query(`UPDATE contacts SET reponse = $1 WHERE id = $2`, [req.body.reponse, req.params.id]);
+        await db.query(`UPDATE contacts SET reponse = $1 WHERE id = $2`, [req.body.reponse, req.params.id]);
         res.json({ success: true, message: 'Réponse enregistrée.' });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Erreur serveur.' });
@@ -285,7 +384,7 @@ app.put('/api/messages/:id/reponse', verifierToken, async (req, res) => {
 // ==========================================
 app.get('/api/chambres', async (req, res) => {
     try {
-        const result = await pool.query(`
+        const result = await db.query(`
             SELECT c.*, p.whatsapp as proprio_whatsapp, p.telephone as proprio_tel 
             FROM chambres c LEFT JOIN proprietaires p ON c.proprietaire_id = p.id 
             ORDER BY c.date_ajout DESC
@@ -302,13 +401,16 @@ app.get('/api/recherche-chambres', async (req, res) => {
     let params = [];
     let idx = 1;
 
-    if (localite) { sql += ` AND c.localite ILIKE $${idx++}`; params.push(`%${localite}%`); }
+    if (localite) { 
+        sql += usePostgres ? ` AND c.localite ILIKE $${idx++}` : ` AND c.localite LIKE $${idx++}`;
+        params.push(`%${localite}%`);
+    }
     if (prix_max) { sql += ` AND c.prix <= $${idx++}`; params.push(prix_max); }
     if (type && type !== 'tout') { sql += ` AND c.type_chambre = $${idx++}`; params.push(type); }
     sql += ` ORDER BY c.date_ajout DESC`;
 
     try {
-        const result = await pool.query(sql, params);
+        const result = await db.query(sql, params);
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: 'Erreur recherche.' });
@@ -317,7 +419,7 @@ app.get('/api/recherche-chambres', async (req, res) => {
 
 app.get('/api/chambre/:id', async (req, res) => {
     try {
-        const result = await pool.query(`
+        const result = await db.query(`
             SELECT c.*, p.nom as proprio_nom, p.prenom as proprio_prenom, 
             p.telephone as proprio_tel, p.whatsapp as proprio_whatsapp, p.zone as proprio_zone
             FROM chambres c LEFT JOIN proprietaires p ON c.proprietaire_id = p.id
@@ -333,7 +435,7 @@ app.get('/api/chambre/:id', async (req, res) => {
 app.get('/api/mes-chambres', verifierToken, async (req, res) => {
     if (req.user.role !== 'proprio') return res.status(403).json({ error: 'Accès refusé.' });
     try {
-        const result = await pool.query(`SELECT * FROM chambres WHERE proprietaire_id = $1 ORDER BY date_ajout DESC`, [req.user.id]);
+        const result = await db.query(`SELECT * FROM chambres WHERE proprietaire_id = $1 ORDER BY date_ajout DESC`, [req.user.id]);
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: 'Erreur serveur.' });
@@ -346,7 +448,10 @@ app.post('/api/ajouter-chambre', verifierToken, upload.array('photos', 10), asyn
     const zone = localite || req.user.zone;
 
     try {
-        const countRes = await pool.query(`SELECT COUNT(*) as nb FROM chambres WHERE proprietaire_id = $1 AND localite ILIKE $2`, [req.user.id, `%${zone}%`]);
+        const countSql = usePostgres 
+            ? `SELECT COUNT(*) as nb FROM chambres WHERE proprietaire_id = $1 AND localite ILIKE $2`
+            : `SELECT COUNT(*) as nb FROM chambres WHERE proprietaire_id = $1 AND localite LIKE $2`;
+        const countRes = await db.query(countSql, [req.user.id, `%${zone}%`]);
         if (parseInt(countRes.rows[0].nb) >= 30) {
             return res.status(400).json({ success: false, message: `Limite de 30 chambres atteinte pour "${zone}".` });
         }
@@ -362,7 +467,7 @@ app.post('/api/ajouter-chambre', verifierToken, upload.array('photos', 10), asyn
         }
 
         const sql = `INSERT INTO chambres (titre, description, prix, localite, type_chambre, proprietaire_id, image_url, images_galerie) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`;
-        const result = await pool.query(sql, [titre, description || '', parseFloat(prix), zone, type_chambre || 'ventile', req.user.id, image_url, images_galerie]);
+        const result = await db.query(sql, [titre, description || '', parseFloat(prix), zone, type_chambre || 'ventile', req.user.id, image_url, images_galerie]);
         res.json({ success: true, message: 'Annonce publiée !', id: result.rows[0].id });
     } catch (err) {
         console.error(err);
@@ -373,7 +478,7 @@ app.post('/api/ajouter-chambre', verifierToken, upload.array('photos', 10), asyn
 app.put('/api/chambres/:id', verifierToken, upload.array('photos', 10), async (req, res) => {
     if (req.user.role !== 'proprio') return res.status(403).json({ error: 'Accès refusé.' });
     try {
-        const check = await pool.query(`SELECT * FROM chambres WHERE id = $1 AND proprietaire_id = $2`, [req.params.id, req.user.id]);
+        const check = await db.query(`SELECT * FROM chambres WHERE id = $1 AND proprietaire_id = $2`, [req.params.id, req.user.id]);
         if (check.rows.length === 0) return res.status(404).json({ success: false, message: 'Non trouvée.' });
 
         let image_url = check.rows[0].image_url;
@@ -389,7 +494,7 @@ app.put('/api/chambres/:id', verifierToken, upload.array('photos', 10), async (r
         }
 
         const { titre, localite, prix, description, type_chambre } = req.body;
-        await pool.query(`UPDATE chambres SET titre=$1, localite=$2, prix=$3, description=$4, type_chambre=$5, image_url=$6, images_galerie=$7 WHERE id=$8`,
+        await db.query(`UPDATE chambres SET titre=$1, localite=$2, prix=$3, description=$4, type_chambre=$5, image_url=$6, images_galerie=$7 WHERE id=$8`,
             [titre, localite, parseFloat(prix), description, type_chambre || 'ventile', image_url, images_galerie, req.params.id]);
         res.json({ success: true, message: 'Annonce modifiée.' });
     } catch (err) {
@@ -400,7 +505,7 @@ app.put('/api/chambres/:id', verifierToken, upload.array('photos', 10), async (r
 app.delete('/api/chambres/:id', verifierToken, async (req, res) => {
     if (req.user.role !== 'proprio') return res.status(403).json({ error: 'Accès refusé.' });
     try {
-        const result = await pool.query(`DELETE FROM chambres WHERE id = $1 AND proprietaire_id = $2`, [req.params.id, req.user.id]);
+        const result = await db.query(`DELETE FROM chambres WHERE id = $1 AND proprietaire_id = $2`, [req.params.id, req.user.id]);
         if (result.rowCount === 0) return res.status(404).json({ success: false, message: 'Non trouvée.' });
         res.json({ success: true, message: 'Supprimée.' });
     } catch (err) {
@@ -411,9 +516,9 @@ app.delete('/api/chambres/:id', verifierToken, async (req, res) => {
 app.get('/api/stats-proprio', verifierToken, async (req, res) => {
     if (req.user.role !== 'proprio') return res.status(403).json({ error: 'Accès refusé.' });
     try {
-        const r1 = await pool.query(`SELECT COUNT(*) as nb FROM chambres WHERE proprietaire_id = $1`, [req.user.id]);
-        const r2 = await pool.query(`SELECT COUNT(*) as nb FROM contacts WHERE proprioId = $1`, [req.user.zone]);
-        const r3 = await pool.query(`SELECT COUNT(*) as nb FROM contacts WHERE proprioId = $1 AND reponse IS NULL`, [req.user.zone]);
+        const r1 = await db.query(`SELECT COUNT(*) as nb FROM chambres WHERE proprietaire_id = $1`, [req.user.id]);
+        const r2 = await db.query(`SELECT COUNT(*) as nb FROM contacts WHERE proprioId = $1`, [req.user.zone]);
+        const r3 = await db.query(`SELECT COUNT(*) as nb FROM contacts WHERE proprioId = $1 AND reponse IS NULL`, [req.user.zone]);
         res.json({ chambres: parseInt(r1.rows[0].nb), messages: parseInt(r2.rows[0].nb), nonLus: parseInt(r3.rows[0].nb) });
     } catch (err) {
         res.status(500).json({ error: 'Erreur' });
@@ -421,4 +526,4 @@ app.get('/api/stats-proprio', verifierToken, async (req, res) => {
 });
 
 const serverless = require('serverless-http');
-module.exports.handler = serverless(app);
+module.exports = { app, handler: serverless(app) };

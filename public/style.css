@@ -199,6 +199,7 @@ ul { list-style: none; }
     gap: 5px;
     cursor: pointer;
     padding: 8px;
+    z-index: 1001;
 }
 .menu-toggle span {
     display: block;
@@ -207,6 +208,17 @@ ul { list-style: none; }
     background: white;
     border-radius: 2px;
     transition: var(--transition);
+}
+
+.menu-toggle.open span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+}
+.menu-toggle.open span:nth-child(2) {
+    opacity: 0;
+    transform: scaleX(0);
+}
+.menu-toggle.open span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
 }
 
 /* ==============================
@@ -1216,41 +1228,263 @@ ul { list-style: none; }
 /* ==============================
    RESPONSIVE
    ============================== */
+@media (max-width: 1024px) {
+    .search-form {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
 @media (max-width: 768px) {
-    .main-header { padding: 0 16px; }
-    .main-nav { display: none; }
+    .main-header { 
+        padding: 0 16px; 
+        height: 64px;
+    }
+    
+    .logo {
+        font-size: 1.2rem;
+    }
+    
+    .logo .logo-icon {
+        font-size: 1.4rem;
+    }
+
+    .main-nav { 
+        display: none; 
+    }
+    
     .main-nav.open {
         display: flex;
         flex-direction: column;
         position: absolute;
-        top: 70px; left: 0; right: 0;
-        background: var(--primary);
-        padding: 16px;
-        gap: 4px;
+        top: 64px; 
+        left: 0; 
+        right: 0;
+        background: rgba(26, 46, 68, 0.98);
+        backdrop-filter: blur(12px);
+        padding: 20px 16px;
+        gap: 8px;
+        z-index: 999;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
     }
-    .menu-toggle { display: flex; }
+    
+    .main-nav.open a {
+        padding: 14px 16px;
+        border-radius: var(--radius-md);
+    }
+    
+    .menu-toggle { 
+        display: flex;
+        padding: 10px;
+    }
+    
+    .menu-toggle span {
+        height: 2.5px;
+    }
 
-    .hero { padding: 60px 20px 60px; }
-    .hero h1 { font-size: 1.8rem; }
+    .hero { 
+        padding: 50px 16px 60px; 
+    }
+    
+    .hero h1 { 
+        font-size: 1.7rem; 
+    }
+    
+    .hero p {
+        font-size: 1rem;
+    }
 
-    .stats-section { margin: -20px 16px 30px; flex-wrap: wrap; }
-    .stat-item { min-width: 45%; border-bottom: 1px solid var(--border); }
+    .stats-section { 
+        margin: -25px 16px 30px; 
+        flex-wrap: wrap;
+        border-radius: var(--radius-lg);
+    }
+    
+    .stat-item { 
+        min-width: 50%; 
+        padding: 20px 12px;
+    }
+    
+    .stat-item:nth-child(2) {
+        border-right: none;
+    }
+    
+    .stat-item:nth-child(3) {
+        border-bottom: none;
+    }
 
-    .search-form { grid-template-columns: 1fr; }
+    .search-form { 
+        grid-template-columns: 1fr; 
+    }
 
-    .grid-chambres { grid-template-columns: 1fr; }
-    .details-grid { grid-template-columns: 1fr; }
-    .stats-grid   { grid-template-columns: 1fr 1fr; }
+    .grid-chambres { 
+        grid-template-columns: 1fr; 
+        gap: 16px;
+    }
+    
+    .card-image {
+        height: 190px;
+    }
 
-    .auth-card { padding: 30px 24px; }
-    .dashboard-header { flex-direction: column; gap: 14px; text-align: center; }
-    .tabs { flex-direction: column; }
+    .details-grid { 
+        grid-template-columns: 1fr; 
+        gap: 20px;
+    }
+    
+    .gallery-main {
+        height: 280px;
+    }
 
-    .hero-actions { flex-direction: column; align-items: center; }
+    .stats-grid { 
+        grid-template-columns: 1fr 1fr; 
+    }
+
+    .auth-card { 
+        padding: 30px 20px; 
+    }
+    
+    .dashboard-header { 
+        flex-direction: column; 
+        gap: 14px; 
+        text-align: center; 
+        padding: 24px 20px;
+    }
+    
+    .tabs { 
+        flex-direction: column; 
+        padding: 8px;
+    }
+    
+    .tab-btn {
+        padding: 14px 16px;
+    }
+
+    .hero-actions { 
+        flex-direction: column; 
+        align-items: center; 
+        width: 100%;
+    }
+    
+    .hero-actions .btn-primary,
+    .hero-actions .btn-secondary {
+        width: 100%;
+        max-width: 300px;
+    }
+    
+    .dashboard-layout,
+    .client-layout,
+    .contact-layout,
+    .details-layout {
+        padding: 20px 16px 40px;
+    }
+    
+    .annonce-card {
+        flex-direction: column;
+    }
+    
+    .annonce-card-img {
+        width: 100%;
+        height: 160px;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .section-header .btn-outline {
+        width: 100%;
+    }
 }
+
 @media (max-width: 480px) {
-    .stats-grid { grid-template-columns: 1fr; }
-    .search-results-grid { grid-template-columns: 1fr; }
-    .proprio-actions { flex-direction: column; }
-    .message-actions { flex-direction: column; }
+    .stats-grid { 
+        grid-template-columns: 1fr; 
+    }
+    
+    .search-results-grid { 
+        grid-template-columns: 1fr; 
+    }
+    
+    .proprio-actions { 
+        flex-direction: column; 
+    }
+    
+    .message-actions { 
+        flex-direction: column; 
+    }
+    
+    .stat-item {
+        min-width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+    }
+    
+    .stat-item:last-child {
+        border-bottom: none;
+    }
+    
+    .btn-primary, .btn-secondary {
+        padding: 12px 20px;
+        font-size: 0.9rem;
+    }
+    
+    .auth-card h1 {
+        font-size: 1.4rem;
+    }
+    
+    .details-title {
+        font-size: 1.4rem;
+    }
+    
+    .details-prix {
+        font-size: 1.6rem;
+    }
+    
+    .toast-container {
+        bottom: 16px;
+        right: 16px;
+        left: 16px;
+    }
+    
+    .toast {
+        min-width: auto;
+    }
+}
+
+/* ==============================
+   TOUCH OPTIMIZATIONS
+   ============================== */
+@media (hover: none) and (pointer: coarse) {
+    .btn-primary, .btn-secondary, .btn-outline, .btn-voir, .btn-whatsapp,
+    .btn-nav-outline, .btn-nav-solid, .btn-logout, .tab-btn, .main-nav a {
+        min-height: 48px;
+        min-width: 48px;
+    }
+    
+    .menu-toggle {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    .gallery-thumb {
+        min-width: 80px;
+        height: 70px;
+    }
+}
+
+/* ==============================
+   ACCESSIBILITY
+   ============================== */
+*:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }

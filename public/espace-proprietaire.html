@@ -14,11 +14,14 @@
         <span class="logo-icon">🏠</span>
         <span>Benin<span>Location</span></span>
     </a>
-    <nav class="main-nav">
+    <nav class="main-nav" id="main-nav">
         <a href="index.html">Accueil</a>
         <a href="espace-proprietaire.html" class="active">Mon espace</a>
     </nav>
     <div id="nav-user-area"></div>
+    <div class="menu-toggle" id="menuToggle" onclick="toggleMenu()">
+        <span></span><span></span><span></span>
+    </div>
 </header>
 
 <div class="dashboard-layout">
@@ -183,6 +186,13 @@ function openTab(name, btn) {
     if (name === 'annonces') chargerAnnonces();
 }
 
+function toggleMenu() {
+    const nav = document.getElementById('main-nav');
+    const toggle = document.getElementById('menuToggle');
+    nav.classList.toggle('open');
+    toggle.classList.toggle('open');
+}
+
 // ---- CHARGEMENT INITIAL ----
 window.addEventListener('DOMContentLoaded', () => {
     if (!Auth.requireLogin('proprio')) return;
@@ -201,6 +211,24 @@ window.addEventListener('DOMContentLoaded', () => {
             if (opt.value === session.zone.toLowerCase()) { opt.selected = true; break; }
         }
     }
+    
+    // Close menu when clicking a nav link
+    document.querySelectorAll('.main-nav a').forEach(link => {
+        link.addEventListener('click', () => {
+            document.getElementById('main-nav').classList.remove('open');
+            document.getElementById('menuToggle').classList.remove('open');
+        });
+    });
+    
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+        const nav = document.getElementById('main-nav');
+        const toggle = document.getElementById('menuToggle');
+        if (!nav.contains(e.target) && !toggle.contains(e.target) && nav.classList.contains('open')) {
+            nav.classList.remove('open');
+            toggle.classList.remove('open');
+        }
+    });
 });
 
 // ---- STATS ----
