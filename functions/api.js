@@ -7,7 +7,6 @@ const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const { Pool } = require('pg');
-const sqlite3 = require('sqlite3').verbose();
 const util = require('util');
 
 const app = express();
@@ -80,25 +79,7 @@ async function initDb() {
             );
         `);
         console.log('✅ Base de données PostgreSQL initialisée.');
-    } else {
-        // Use SQLite for local development
-        usePostgres = false;
-        const sqliteDb = new sqlite3.Database('./location.db');
-        sqliteDb.run = util.promisify(sqliteDb.run);
-        sqliteDb.all = util.promisify(sqliteDb.all);
-        sqliteDb.get = util.promisify(sqliteDb.get);
-        
-        db = {
-            async query(sql, params = []) {
-                // Convert PostgreSQL placeholders ($1, $2, ...) to SQLite (?)
-                let sqliteSql = sql;
-                let sqliteParams = [];
-                let paramIndex = 1;
-                while (sqliteSql.includes(`$${paramIndex}`)) {
-                    sqliteSql = sqliteSql.replace(`$${paramIndex}`, '?');
-                    sqliteParams.push(params[paramIndex - 1]);
-                    paramIndex++;
-                }
+   
                 
                 // Handle different query types
                 if (sqliteSql.trim().toUpperCase().startsWith('SELECT')) {
