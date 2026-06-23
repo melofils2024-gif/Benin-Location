@@ -18,6 +18,5 @@
     "multer-storage-cloudinary": "^4.0.0",
     "pg": "^8.11.3",
     "serverless-http": "^4.0.0"
-    
   }
 }
