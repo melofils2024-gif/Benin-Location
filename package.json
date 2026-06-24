@@ -2,7 +2,8 @@
   "name": "benin-location",
   "version": "1.0.0",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "echo 'Aucun build nécessaire pour ce backend'"
   },
   "engines": {
     "node": ">=18.0.0"
